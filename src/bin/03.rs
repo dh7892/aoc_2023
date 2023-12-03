@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap};
+use std::collections::HashMap;
 
 advent_of_code::solution!(3);
 
@@ -16,45 +16,40 @@ struct Number {
 }
 
 fn number_is_valid(number: &Number, symbols: &HashMap<Location, char>) -> bool {
-    let mut locations = number.symbol_locations();
-    for location in locations {
-        if symbols.get(&location).is_some() {
-            return true;
-        }
-    }
-    false
+    number
+        .symbol_locations()
+        .iter()
+        .any(|location| symbols.get(location).is_some())
 }
 
 impl Number {
     fn symbol_locations(&self) -> Vec<Location> {
         let mut locations = Vec::new();
         let min_col = if self.col > 0 { self.col - 1 } else { 0 };
-        if self.row > 0 {
+        let min_row = if self.row > 0 { self.row - 1 } else { 0 };
+        for row in min_row..=self.row + 1 {
             for col in min_col..=self.col + self.length {
-                locations.push(Location {
-                    row: self.row - 1,
-                    col,
-                });
+                if row == self.row && col >= self.col && col < self.col + self.length {
+                    // exclude the number itself
+                    continue;
+                }
+                locations.push(Location { row, col });
             }
         }
-        if self.col > 0 {
-            locations.push(Location {
-                row: self.row,
-                col: self.col - 1,
-            });
-        }
-        locations.push(Location {
-            row: self.row,
-            col: self.col + self.length,
-        });
-
-        for col in min_col..=self.col + self.length {
-            locations.push(Location {
-                row: self.row + 1,
-                col,
-            });
-        }
         locations
+    }
+}
+
+fn add_number_to_list(acc_number: &mut String, numbers: &mut Vec<Number>, row: usize, col: usize) {
+    if !acc_number.is_empty() {
+        let number = Number {
+            row,
+            col: col - acc_number.len(),
+            length: acc_number.len(),
+            value: acc_number.parse().unwrap(),
+        };
+        numbers.push(number);
+        acc_number.clear();
     }
 }
 
@@ -68,42 +63,15 @@ fn parse_input(input: &str) -> (Vec<Number>, HashMap<Location, char>) {
             if c.is_ascii_digit() {
                 acc_number.push(c);
                 last_col = col;
-            } else if c == '.' {
-                if !acc_number.is_empty() {
-                    let number = Number {
-                        row,
-                        col: col - acc_number.len(),
-                        length: acc_number.len(),
-                        value: acc_number.parse().unwrap(),
-                    };
-                    numbers.push(number);
-                    acc_number = "".to_owned();
-                }
             } else {
-                if !acc_number.is_empty() {
-                    let number = Number {
-                        row,
-                        col: col - acc_number.len(),
-                        length: acc_number.len(),
-                        value: acc_number.parse().unwrap(),
-                    };
-                    numbers.push(number);
-                    acc_number = "".to_owned();
+                add_number_to_list(&mut acc_number, &mut numbers, row, col);
+                if c != '.' {
+                    symbols.insert(Location { row, col }, c);
                 }
-                symbols.insert(Location { row, col }, c);
             }
         }
         // If we were still accumulating a number when we reached the end of the line, we need to add it now
-        if !acc_number.is_empty() {
-            let number = Number {
-                row,
-                col: last_col - acc_number.len() + 1,
-                length: acc_number.len(),
-                value: acc_number.parse().unwrap(),
-            };
-            numbers.push(number);
-            acc_number = "".to_owned();
-        }
+        add_number_to_list(&mut acc_number, &mut numbers, row, last_col + 1);
     }
     (numbers, symbols)
 }

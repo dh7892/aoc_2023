@@ -3,7 +3,7 @@ advent_of_code::solution!(2);
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::line_ending;
-use nom::multi::{many1, separated_list1};
+use nom::multi::separated_list1;
 
 #[derive(Debug, Default, PartialEq)]
 struct Hand {
