@@ -38,14 +38,25 @@ struct Race {
 
 impl Race {
     fn permutations_that_beat_distance(&self) -> u64 {
-        (1..self.time)
-            .map(|held| distance_travelled(self.time, held))
-            .filter(|distance| distance > &self.distance)
-            .count() as u64
+        // Use quadratic formula to find the range of values that
+        // Our distance as a function of how long we hold the button is:
+        // d = h(t - h)
+        // Which gives a quadratic equation of the form:
+        // 0 = h^2 - ht + d
+        // The "root" part here is the sqrt(b^2 - 4ac)
+        let root = ((self.time * self.time - 4 * self.distance) as f64).sqrt();
+
+        // Round to the nearest integer that's strictly better.
+        // hence using floor + 1 instead of ceil and this works properly
+        // in the case where the root is an integer.
+        let lower = ((self.time as f64 - root) / 2.0).floor() as u64 + 1;
+        let upper = ((self.time as f64 + root) / 2.0).ceil() as u64 - 1;
+
+        upper - lower + 1
     }
 }
 
-fn distance_travelled(time: u64, held: u64) -> u64 {
+fn _distance_travelled(time: u64, held: u64) -> u64 {
     held * (time - held)
 }
 
@@ -59,22 +70,25 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let stripped_input = input
-        .chars()
-        .filter(|c| !c.is_whitespace())
-        .collect::<String>();
-
-    let lines = &stripped_input.lines().collect::<Vec<&str>>();
+    let lines = input.lines().collect::<Vec<&str>>();
     let time = just("Time:")
-        .ignore_then(text::whitespace())
         .ignore_then(integer_parser())
-        .parse(lines[0])
+        .parse(
+            lines[0]
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .collect::<String>(),
+        )
         .unwrap();
 
     let distance = just("Distance:")
-        .ignore_then(text::whitespace())
         .ignore_then(integer_parser())
-        .parse(lines[1])
+        .parse(
+            lines[1]
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .collect::<String>(),
+        )
         .unwrap();
 
     let race = Race { time, distance };
@@ -93,11 +107,20 @@ mod tests {
 
     #[test]
     fn test_part_two() {
-        let race = Race {
-            time: 71530,
-            distance: 940200,
-        };
-        let result = Some(race.permutations_that_beat_distance() as u32);
+        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(71503));
+    }
+
+    #[rstest::rstest]
+    #[case(7, 9, 4)]
+    #[case(15, 40, 8)]
+    #[case(30, 200, 9)]
+    fn test_permutations_that_beat_distance(
+        #[case] time: u64,
+        #[case] distance: u64,
+        #[case] expected: u64,
+    ) {
+        let race = Race { time, distance };
+        assert_eq!(race.permutations_that_beat_distance(), expected);
     }
 }
