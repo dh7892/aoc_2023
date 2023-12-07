@@ -55,7 +55,7 @@ mod part_one {
     }
 
     pub fn cards_from_str(input: &str) -> Vec<Card> {
-        input.chars().map(|c| Card::from_char(c)).collect()
+        input.chars().map(Card::from_char).collect()
     }
 
     #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -74,7 +74,7 @@ mod part_one {
             let counts = card_counts(cards);
             let mut counts: Vec<(Card, u8)> = counts.into_iter().collect();
             counts.sort_by(|a, b| b.1.cmp(&a.1));
-            let (card, count) = &counts[0];
+            let (_card, count) = &counts[0];
             match count {
                 5 => HandType::FiveOfAKind,
                 4 => HandType::FourOfAKind,
@@ -107,8 +107,7 @@ mod part_one {
     impl Hand {
         pub fn from_word(word: &str) -> Self {
             let cards = cards_from_str(word);
-            let hand_type = HandType::from_cards(cards.clone());
-            Hand { cards, hand_type }
+            Hand::from_cards(cards.clone())
         }
         fn from_cards(cards: Vec<Card>) -> Self {
             let hand_type = HandType::from_cards(cards.clone());
