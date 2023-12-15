@@ -1,6 +1,5 @@
 advent_of_code::solution!(14);
 
-use core::num;
 use std::collections::HashMap;
 
 enum Rock {
