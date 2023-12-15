@@ -1,5 +1,6 @@
 advent_of_code::solution!(14);
 
+use core::num;
 use std::collections::HashMap;
 
 enum Rock {
@@ -201,17 +202,35 @@ pub fn part_one(input: &str) -> Option<usize> {
 pub fn part_two(input: &str) -> Option<usize> {
     let mut rock_map = rock_map_from_input(input);
     // let num_cycles = 1_000_000_000;
-    let num_cycles = 1_000;
+    let num_cycles = 1_00;
     // Rather than try to get all 1000000000 cycles, I run the first 1000
     // print out the results and look for patterns
     // It turns out that you can clearly see a repeating pattern after a few cycles.
     // So I manually worked out the repeating sequence from that and calculated what the 1 billionth cycle would be
 
-    for cycle in 0..num_cycles {
+    // Run for a few cycles to let the pattern stabilise
+    for _ in 0..num_cycles {
         rock_map.cycle();
-        println!("{} {}", cycle, rock_map.load());
     }
-    Some(rock_map.load())
+
+    // Now run for cycles until we have a repeating pattern
+    let mut cycles = Vec::new();
+    for _ in num_cycles..num_cycles + 100 {
+        rock_map.cycle();
+        let load = rock_map.load();
+        if cycles.contains(&load) {
+            break;
+        }
+        cycles.push(load);
+    }
+    // We now have our repeating pattern so we can calculate the load for the 1 billionth cycle
+    let cycle = (1_000_000_000 - num_cycles - 1) % cycles.len();
+    let load = cycles[cycle];
+    println!(
+        "Load after {} cycles is {}, (it's number {} in our repeating pattern",
+        1_000_000_000, load, cycle
+    );
+    Some(load)
 }
 
 #[cfg(test)]
@@ -222,6 +241,12 @@ mod tests {
     fn test_part_one() {
         let result = part_one(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(136));
+    }
+
+    #[test]
+    fn test_part_two() {
+        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
+        assert_eq!(result, Some(64));
     }
 
     #[rstest::rstest]
