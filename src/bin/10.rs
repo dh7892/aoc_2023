@@ -20,7 +20,6 @@ enum PipeType {
 }
 
 struct Pipe {
-    distance_from_start: u32,
     pipe_type: PipeType,
 }
 
@@ -152,10 +151,7 @@ fn input_to_map(input: &str) -> (HashMap<Position, Pipe>, Position) {
                     row: row as i32,
                     column: column as i32,
                 },
-                Pipe {
-                    distance_from_start: 0,
-                    pipe_type,
-                },
+                Pipe { pipe_type },
             );
         }
     }
@@ -247,7 +243,7 @@ impl Path {
             Direction::West,
         ] {
             // If the point is part of the pipe, we can early return false
-            if let Some(_) = self.path.iter().find(|p| *p == pos) {
+            if self.path.iter().any(|p| p == pos) {
                 return false;
             }
             let crossings = self.crossings_from_point(*pos, *direction);
@@ -264,52 +260,17 @@ impl Path {
     // Else None
     fn pipe_type_at_position(&self, pos: &Position) -> Option<PipeType> {
         let pos_on_path = self.path.iter().find(|p| *p == pos);
-        if let Some(_) = pos_on_path {
+        if pos_on_path.is_some() {
             return Some(self.map.get(pos)?.pipe_type);
         }
         None
-    }
-
-    fn is_bounding_point(&self, pos: &Position, direction: Direction) -> bool {
-        let pos_on_path = self.path.iter().find(|p| *p == pos);
-        match pos_on_path {
-            Some(_) => {
-                let path_type = self.map.get(pos).unwrap().pipe_type;
-                match direction {
-                    Direction::North => {
-                        if let PipeType::EastWest = path_type {
-                            return true;
-                        }
-                    }
-                    Direction::South => {
-                        if let PipeType::EastWest = path_type {
-                            return true;
-                        }
-                    }
-                    Direction::East => {
-                        if let PipeType::NorthSouth = path_type {
-                            return true;
-                        }
-                    }
-                    Direction::West => {
-                        if let PipeType::NorthSouth = path_type {
-                            return true;
-                        }
-                    }
-                }
-            }
-            None => {
-                return false;
-            }
-        }
-        false
     }
 
     fn crossings_from_point(&self, position: Position, direction: Direction) -> u32 {
         let mut crossings = Vec::new();
         let mut position = position;
 
-        let (mut row_delta, mut column_delta) = match direction {
+        let (row_delta, column_delta) = match direction {
             Direction::North => (-1, 0),
             Direction::South => (1, 0),
             Direction::East => (0, 1),
