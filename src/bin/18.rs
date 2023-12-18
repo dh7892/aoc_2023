@@ -1,204 +1,111 @@
 advent_of_code::solution!(18);
 
-use chumsky::prelude::*;
 use std::collections::HashMap;
 
-fn integer_parser() -> impl Parser<char, u32, Error = Simple<char>> {
-    text::int(10).map(|s: String| s.parse::<u32>().unwrap())
-}
-
-fn integer_list_parser() -> impl Parser<char, Vec<u32>, Error = Simple<char>> {
-    integer_parser().separated_by(text::whitespace())
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Direction {
+    Up,
+    Down,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum WallType {
-    Up,
-    Down,
-    Left,
-    Right,
-    UpRight,
-    UpLeft,
-    RightDown,
-    RightUp,
-    DownLeft,
-    DownRight,
-    LeftUp,
-    LeftDown,
-    Middle, // This is not technically in a wall, it's a space surrounded by walls
+struct Line {
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    direction: Direction,
 }
 
-// Each line of input is in the form of: D C (#aabbcc)
-// Where D is direction (U, D, L, R)
-// C is the count of how many steps to take in that direction
-// And the part in brackets is hex color is the color to draw the line
-fn wall_map_from_input(input: &str) -> (HashMap<(i32, i32), WallType>, i32, i32, i32, i32) {
-    use WallType::*;
-    let mut wall_map = HashMap::new();
-    let (mut min_x, mut max_x, mut min_y, mut max_y) = (0, 0, 0, 0);
-    let mut x = 0;
-    let mut y = 0;
-    let mut last_type = None;
-    let mut first_type = None;
+fn input_to_vertical_lines_part_1(input: &str) -> Vec<Line> {
+    let mut lines = Vec::new();
+    let (mut x, mut y) = (0, 0);
+
     for line in input.lines() {
         let mut parts = line.split_whitespace();
         let direction_char = parts.next().unwrap();
         let count = parts.next().unwrap().parse::<u32>().unwrap();
         // let color = u32::from_str_radix(&color[1..], 16).unwrap();
-        let (dx, dy, wall_type) = match direction_char {
-            "U" => (0, -1, Up),
-            "D" => (0, 1, Down),
-            "L" => (-1, 0, Left),
-            "R" => (1, 0, Right),
+        let (dx, dy, direction) = match direction_char {
+            "U" => (0, -1, Some(Direction::Up)),
+            "D" => (0, 1, Some(Direction::Down)),
+            "L" => (-1, 0, None),
+            "R" => (1, 0, None),
             _ => panic!("Invalid direction"),
         };
-        if first_type.is_none() {
-            first_type = Some(wall_type);
+        let x1 = x;
+        let y1 = y;
+        let x2 = x + dx * count as i32;
+        let y2 = y + dy * count as i32;
+        if let Some(direction) = direction {
+            // Only save vertical lines
+            lines.push(Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                direction,
+            });
         }
-        for i in 0..count {
-            if i == 0 {
-                if let Some(last_type) = last_type {
-                    // We are at a corner so update the last point
-                    let corner_type = match (last_type, wall_type) {
-                        (Left, Up) => LeftUp,
-                        (Left, Down) => LeftDown,
-                        (Right, Up) => RightUp,
-                        (Right, Down) => RightDown,
-                        (Up, Left) => UpLeft,
-                        (Up, Right) => UpRight,
-                        (Down, Left) => DownLeft,
-                        (Down, Right) => DownRight,
-                        _ => {
-                            println!("Last type: {:?}, wall type: {:?}", last_type, wall_type);
-                            panic!("Invalid corner")
-                        }
-                    };
-                    wall_map.insert((x, y), corner_type);
-                }
-            };
-
-            x += dx;
-            y += dy;
-            if x < min_x {
-                min_x = x;
-            }
-            if x > max_x {
-                max_x = x;
-            }
-            if y < min_y {
-                min_y = y;
-            }
-            if y > max_y {
-                max_y = y;
-            }
-            wall_map.insert((x, y), wall_type);
-        }
-        last_type = Some(wall_type);
+        // Update for the next line
+        x = x2;
+        y = y2;
     }
-
-    // Fix up the last corner
-    if let (Some(wall_type), Some(last_type)) = (first_type, last_type) {
-        // We are at a corner so update the last point
-        let corner_type = match (last_type, wall_type) {
-            (Left, Up) => LeftUp,
-            (Left, Down) => LeftDown,
-            (Right, Up) => RightUp,
-            (Right, Down) => RightDown,
-            (Up, Left) => LeftUp,
-            (Up, Right) => UpRight,
-            (Down, Left) => DownLeft,
-            (Down, Right) => DownRight,
-            _ => {
-                println!("Last type: {:?}, wall type: {:?}", last_type, wall_type);
-                panic!("Invalid corner")
-            }
-        };
-        wall_map.insert((x, y), corner_type);
-    }
-    (wall_map, min_x, max_x, min_y, max_y)
+    lines
 }
 
-fn print_wall_map(
-    wall_map: &HashMap<(i32, i32), WallType>,
-    min_x: i32,
-    max_x: i32,
-    min_y: i32,
-    max_y: i32,
-) {
-    use WallType::*;
-    for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            if let Some(direction) = wall_map.get(&(x, y)) {
-                match direction {
-                    Up => print!("|"),
-                    Down => print!("|"),
-                    Left => print!("-"),
-                    Right => print!("-"),
-                    UpRight | LeftDown => print!("┌"),
-                    RightDown | UpLeft => print!("┐"),
-                    DownLeft | RightUp => print!("┘"),
-                    LeftUp | DownRight => print!("└"),
-                    Middle => print!("#"),
+// Use ray marching to find the area of the hole
+// By looping row by row and considering vertical lines
+fn lines_to_area(lines: &[Line]) -> u32 {
+    // Only look at starts of line as there will always be a corresponding other vertical line
+    // That starts at the end of the line (even if it's not directly after this line)
+    let mut rows_of_interest = lines.iter().map(|line| line.y1).collect::<Vec<_>>();
+    rows_of_interest.sort_unstable();
+    rows_of_interest.dedup();
+
+    rows_of_interest.windows(2).fold(0, |area, row| {
+        let (row1, row2) = (row[0], row[1]);
+        let lines_of_interest = lines
+            .iter()
+            .filter(|line| {
+                // Only consider lines that are in the range of the current rows
+                match line.direction {
+                    Direction::Up => line.y1 >= row2 && line.y2 <= row1,
+                    Direction::Down => line.y1 <= row1 && line.y2 >= row2,
                 }
+            })
+            .collect::<Vec<_>>();
+
+        let mut cols_of_interest = lines_of_interest
+            .iter()
+            .flat_map(|line| vec![line.x1, line.x2])
+            .collect::<Vec<_>>();
+        cols_of_interest.sort_unstable();
+        cols_of_interest.dedup();
+        cols_of_interest.windows(2).fold(area, |area, col| {
+            let (col1, col2) = (col[0], col[1]);
+            let mut inside_count = 0;
+            for line in lines_of_interest.iter() {
+                if line.x1 <= col1 {
+                    if line.direction == Direction::Up {
+                        inside_count += 1;
+                    } else {
+                        inside_count -= 1;
+                    }
+                }
+            }
+            if inside_count > 0 {
+                area + (row2 - row1) as u32 * ((col2 - col1) as u32 + 1)
             } else {
-                print!(".");
+                area
             }
-        }
-        println!();
-    }
-}
-
-fn hole_map(
-    wall_map: &HashMap<(i32, i32), WallType>,
-    min_x: i32,
-    max_x: i32,
-    min_y: i32,
-    max_y: i32,
-) -> HashMap<(i32, i32), WallType> {
-    use WallType::*;
-    let mut hole_map = HashMap::new();
-    for y in min_y..=max_y {
-        let mut inside = false;
-        for x in min_x..=max_x {
-            if let Some(direction) = wall_map.get(&(x, y)) {
-                // We are on a wall, so we count that
-                hole_map.insert((x, y), *direction);
-                match (inside, direction) {
-                    (true, Up) => (),
-                    (true, Down) => inside = false,
-                    (true, Left) => (),
-                    (true, Right) => (),
-                    (true, UpRight) => (),
-                    (true, RightDown) => inside = false,
-                    (true, DownLeft) => inside = false,
-                    (true, LeftUp) => (),
-                    (true, Middle) => (),
-                    (false, Up) => inside = true,
-                    (false, Down) => (),
-                    (false, Left) => (),
-                    (false, Right) => (),
-                    (false, UpRight) => inside = true,
-                    (false, RightDown) => (),
-                    (false, DownLeft) => (),
-                    (false, LeftUp) => inside = true,
-                    (false, Middle) => (),
-                    _ => (),
-                }
-            } else if inside {
-                hole_map.insert((x, y), Middle);
-            }
-        }
-    }
-    hole_map
+        })
+    })
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let (wall_map, min_x, max_x, min_y, max_y) = wall_map_from_input(input);
-    print_wall_map(&wall_map, min_x, max_x, min_y, max_y);
-    let hole_map = hole_map(&wall_map, min_x, max_x, min_y, max_y);
-    println!("Hole map:");
-    print_wall_map(&hole_map, min_x, max_x, min_y, max_y);
-    Some(hole_map.len() as u32)
+    let vertical_lines = input_to_vertical_lines_part_1(input);
+    Some(lines_to_area(&vertical_lines))
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
