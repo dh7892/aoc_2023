@@ -63,15 +63,18 @@ fn lines_to_area(lines: &[Line]) -> u32 {
     rows_of_interest.sort_unstable();
     rows_of_interest.dedup();
 
-    rows_of_interest.windows(2).fold(0, |area, row| {
-        let (row1, row2) = (row[0], row[1]);
+    let min_row = rows_of_interest[0];
+    let max_row = rows_of_interest[rows_of_interest.len() - 1];
+
+    let mut total_area = 0;
+    for row in min_row..=max_row {
         let lines_of_interest = lines
             .iter()
             .filter(|line| {
                 // Only consider lines that are in the range of the current rows
                 match line.direction {
-                    Direction::Up => line.y1 >= row2 && line.y2 <= row1,
-                    Direction::Down => line.y1 <= row1 && line.y2 >= row2,
+                    Direction::Up => row <= line.y1 && row >= line.y2,
+                    Direction::Down => row >= line.y1 && row <= line.y2,
                 }
             })
             .collect::<Vec<_>>();
@@ -82,25 +85,25 @@ fn lines_to_area(lines: &[Line]) -> u32 {
             .collect::<Vec<_>>();
         cols_of_interest.sort_unstable();
         cols_of_interest.dedup();
-        cols_of_interest.windows(2).fold(area, |area, col| {
+        total_area += cols_of_interest.windows(2).fold(0, |area, col| {
             let (col1, col2) = (col[0], col[1]);
-            let mut inside_count = 0;
+            let mut inside = false;
             for line in lines_of_interest.iter() {
                 if line.x1 <= col1 {
-                    if line.direction == Direction::Up {
-                        inside_count += 1;
-                    } else {
-                        inside_count -= 1;
+                    if line.direction == Direction::Up && !inside {
+                        inside = true;
+                    } else if line.direction == Direction::Down && inside {
+                        inside = false;
                     }
                 }
             }
-            if inside_count > 0 {
-                area + (row2 - row1) as u32 * ((col2 - col1) as u32 + 1)
-            } else {
-                area
+            if inside {
+                return area + (col2 - col1) as u32;
             }
-        })
-    })
+            0
+        }) + 1;
+    }
+    total_area
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
